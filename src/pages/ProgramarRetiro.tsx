@@ -95,7 +95,8 @@ export default function ProgramarRetiro() {
     setPreviewUrl(null);
   };
 
-  const isAddressComplete = nombreCompleto && calle && altura && codigoPostal && email && telefono;
+  const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const isAddressComplete = nombreCompleto && calle && altura && codigoPostal && isValidEmail && telefono.length >= 6;
 
   const handleSubmitFinal = async () => {
     setIsSubmitting(true);
@@ -225,7 +226,7 @@ export default function ProgramarRetiro() {
               <label className="font-label-sm text-label-sm text-on-surface-variant">Nombre Completo</label>
               <input 
                 type="text" 
-                value={nombreCompleto} onChange={(e) => setNombreCompleto(e.target.value)}
+                value={nombreCompleto} onChange={(e) => setNombreCompleto(e.target.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, ''))}
                 className="w-full bg-surface-container-lowest border border-outline-variant/50 rounded-xl px-4 py-3 text-on-surface focus:border-primary outline-none"
               />
             </div>
@@ -243,7 +244,7 @@ export default function ProgramarRetiro() {
               <label className="font-label-sm text-label-sm text-on-surface-variant">Altura / Número</label>
               <input 
                 type="text" 
-                value={altura} onChange={(e) => setAltura(e.target.value)}
+                value={altura} onChange={(e) => setAltura(e.target.value.replace(/\D/g, ''))}
                 className="w-full bg-surface-container-lowest border border-outline-variant/50 rounded-xl px-4 py-3 text-on-surface focus:border-primary outline-none"
               />
             </div>
@@ -252,7 +253,7 @@ export default function ProgramarRetiro() {
               <label className="font-label-sm text-label-sm text-on-surface-variant">Código Postal</label>
               <input 
                 type="text" 
-                value={codigoPostal} onChange={(e) => setCodigoPostal(e.target.value)}
+                value={codigoPostal} onChange={(e) => setCodigoPostal(e.target.value.replace(/\D/g, ''))}
                 className="w-full bg-surface-container-lowest border border-outline-variant/50 rounded-xl px-4 py-3 text-on-surface focus:border-primary outline-none"
               />
             </div>
@@ -261,7 +262,7 @@ export default function ProgramarRetiro() {
               <label className="font-label-sm text-label-sm text-on-surface-variant">Email</label>
               <input 
                 type="email" 
-                value={email} onChange={(e) => setEmail(e.target.value)}
+                value={email} onChange={(e) => setEmail(e.target.value.trim())}
                 className="w-full bg-surface-container-lowest border border-outline-variant/50 rounded-xl px-4 py-3 text-on-surface focus:border-primary outline-none"
               />
             </div>
