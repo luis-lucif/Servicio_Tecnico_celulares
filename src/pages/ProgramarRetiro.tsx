@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import imageCompression from 'browser-image-compression';
 
 export default function ProgramarRetiro() {
   const { id } = useParams();
@@ -61,13 +62,22 @@ export default function ProgramarRetiro() {
   const handleFileUpload = async (file: File) => {
     setIsUploading(true);
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const options = {
+        maxSizeMB: 1,
+        maxWidthOrHeight: 1200,
+        useWebWorker: true,
+        fileType: 'image/webp',
+        initialQuality: 0.8
+      };
+
+      const compressedFile = await imageCompression(file, options);
+      
+      const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.webp`;
       const filePath = `${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from('imagenes_reparaciones')
-        .upload(filePath, file);
+        .upload(filePath, compressedFile);
 
       if (uploadError) throw uploadError;
 
@@ -76,8 +86,11 @@ export default function ProgramarRetiro() {
         .getPublicUrl(filePath);
 
       setFotoUrl(data.publicUrl);
-      setPhoto(file);
-      setPreviewUrl(URL.createObjectURL(file));
+      
+      // Creamos un nuevo objeto File a partir del Blob comprimido para no perder la propiedad 'name' en la vista
+      const finalFile = new File([compressedFile], fileName, { type: 'image/webp' });
+      setPhoto(finalFile);
+      setPreviewUrl(URL.createObjectURL(finalFile));
     } catch (error) {
       console.error('Error uploading image:', error);
       alert('Hubo un error al subir la imagen. Por favor, intenta de nuevo.');

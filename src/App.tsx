@@ -5,10 +5,12 @@ import Cotizador from './pages/Cotizador'
 import Seguimiento from './pages/Seguimiento'
 import PanelTecnico from './pages/PanelTecnico'
 import ProgramarRetiro from './pages/ProgramarRetiro'
+import ConnectionTest from './components/ConnectionTest'
 
 function App() {
   return (
     <BrowserRouter>
+      <ConnectionTest />
       <Routes>
         <Route path="/" element={<Layout />}>
           <Route index element={<Home />} />

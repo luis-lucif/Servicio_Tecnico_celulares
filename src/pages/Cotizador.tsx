@@ -28,6 +28,9 @@ export default function Cotizador() {
   const [success, setSuccess] = useState(false);
   const [orderId, setOrderId] = useState<number | null>(null);
   
+  // Wizard state
+  const [currentStep, setCurrentStep] = useState(1);
+
   // Fake dynamic pricing calculation
   const getEstimatedPrice = () => {
     let base = 100;
@@ -48,10 +51,21 @@ export default function Cotizador() {
           .order('nombre_modelo', { ascending: true });
           
         if (error) throw error;
-        
         if (data) {
-          setModelos(data);
-          const uniqueMarcas = Array.from(new Set(data.map((m) => m.marca)));
+          // Cambiamos el nombre de algunos modelos si es necesario para que coincidan con las imágenes
+          const updatedData = data.map(m => {
+            if (m.nombre_modelo === 'iPhone 13') {
+              return { ...m, nombre_modelo: 'iPhone 13 Pro Max' };
+            }
+            // Si solo tienen Galaxy S24, lo renombramos a Ultra para que puedas probarlo
+            if (m.nombre_modelo === 'Galaxy S24' || m.nombre_modelo === 'S24') {
+              return { ...m, nombre_modelo: 'Galaxy S24 Ultra' };
+            }
+            return m;
+          });
+          
+          setModelos(updatedData);
+          const uniqueMarcas = Array.from(new Set(updatedData.map((m) => m.marca)));
           setMarcas(uniqueMarcas);
         }
       } catch (err) {
@@ -90,7 +104,7 @@ export default function Cotizador() {
   };
 
   const enviarPresupuestoWhatsapp = () => {
-    const numeroWhatsApp = "5491127722634"; // Reemplaza esto con tu número real, incluyendo el código de país (ej. 5491123456789)
+    const numeroWhatsApp = import.meta.env.VITE_WHATSAPP_NUMBER;
     
     const problemaTxt = [
       { id: 'pantalla', title: 'Reemplazo de Pantalla' },
@@ -108,6 +122,25 @@ La reparación es en el día! Traes tu equipo por la mañana y lo retiras por la
 
     const encodedText = encodeURIComponent(texto);
     window.open(`https://wa.me/${numeroWhatsApp}?text=${encodedText}`, '_blank');
+  };
+
+  const nextStep = () => setCurrentStep(prev => Math.min(prev + 1, 4));
+  const prevStep = () => setCurrentStep(prev => Math.max(prev - 1, 1));
+
+  const handleMarcaSelect = (marca: string) => {
+    setSelectedMarca(marca);
+    setSelectedModelo(null);
+    setTimeout(nextStep, 300);
+  };
+
+  const handleModeloSelect = (modelo: ModeloDispositivo) => {
+    setSelectedModelo(modelo);
+    setTimeout(nextStep, 300);
+  };
+
+  const handleIssueSelect = (issueId: string) => {
+    setSelectedIssue(issueId);
+    setTimeout(nextStep, 300);
   };
 
   const modelosDeMarca = modelos.filter(m => m.marca === selectedMarca);
@@ -166,194 +199,258 @@ La reparación es en el día! Traes tu equipo por la mañana y lo retiras por la
     );
   }
 
+  const stepTitles = [
+    "Selecciona tu marca",
+    "Selecciona el modelo",
+    "¿Qué necesita reparación?",
+    "Datos de contacto"
+  ];
+
   return (
-    <main className="flex-grow w-full max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-12 md:py-24 space-y-16">
-      {/* Header */}
-      <div className="text-center max-w-2xl mx-auto space-y-4">
-        <h2 className="font-display-lg-mobile md:font-display-lg text-display-lg-mobile md:text-display-lg text-on-surface">Cotizador Inteligente</h2>
-        <p className="font-body-lg text-body-lg text-on-surface-variant">Obtén un presupuesto preciso para tu dispositivo en segundos. Selecciona tu modelo y problema para comenzar.</p>
+    <main className="flex-grow w-full max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-12 md:py-24 flex flex-col items-center">
+      {/* Header & Progress Indicator */}
+      <div className="w-full max-w-3xl mb-12 space-y-6">
+        <div className="text-center space-y-4">
+          <h2 className="font-display-lg-mobile md:font-display-lg text-display-lg-mobile md:text-display-lg text-on-surface">Cotizador Inteligente</h2>
+          <p className="font-body-lg text-body-lg text-on-surface-variant">Paso {currentStep} de 4: {stepTitles[currentStep - 1]}</p>
+        </div>
+
+        {/* Progress Bar */}
+        <div className="w-full bg-surface-variant rounded-full h-2 overflow-hidden flex">
+          <div 
+            className="bg-primary h-full transition-all duration-500 ease-out" 
+            style={{ width: `${(currentStep / 4) * 100}%` }}
+          />
+        </div>
       </div>
 
-      {/* Step 1: Brand Selection */}
-      <section className="space-y-6">
-        <div className="flex items-center gap-4">
-          <div className="w-8 h-8 rounded-full bg-primary text-on-primary flex items-center justify-center font-label-md text-label-md">1</div>
-          <h3 className="font-headline-md text-headline-md text-on-surface">Selecciona tu marca</h3>
-        </div>
+      <div className="w-full max-w-3xl bg-surface-container-low border border-outline-variant/30 rounded-[32px] p-8 min-h-[400px] flex flex-col relative overflow-hidden shadow-sm animate-in fade-in duration-500">
         
-        {isLoading ? (
-          <div className="text-on-surface-variant flex items-center gap-2">
-            <span className="material-symbols-outlined animate-spin">refresh</span>
-            Cargando marcas...
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {marcas.map((marca) => {
-              const isSelected = selectedMarca === marca;
-              return (
-                <div 
-                  key={marca}
-                  onClick={() => {
-                    setSelectedMarca(marca);
-                    setSelectedModelo(null);
-                  }}
-                  className={`rounded-[24px] p-6 flex flex-col items-center justify-center gap-3 cursor-pointer transition-all duration-200 ${
-                    isSelected 
-                      ? 'bg-primary-container/10 border-2 border-primary scale-[1.02] shadow-sm' 
-                      : 'bg-surface-container-low hover:bg-surface-container border-2 border-transparent'
-                  }`}
-                >
-                  <span className={`material-symbols-outlined text-4xl ${isSelected ? 'text-primary icon-fill' : 'text-on-surface-variant'}`}>
-                    smartphone
-                  </span>
-                  <span className={`font-label-md text-label-md text-center ${isSelected ? 'text-on-surface' : 'text-on-surface-variant'}`}>
-                    {marca}
-                  </span>
-                </div>
-              );
-            })}
-            {marcas.length === 0 && (
-              <div className="col-span-full text-on-surface-variant text-sm">
-                No hay modelos registrados en la base de datos.
-              </div>
-            )}
-          </div>
-        )}
-      </section>
-
-      {/* Step 1.5: Model Selection */}
-      {selectedMarca && (
-        <section className="space-y-6 animate-in fade-in slide-in-from-top-4 duration-300">
-          <div className="flex items-center gap-4">
-            <div className="w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center font-label-md text-label-md">
-              <span className="material-symbols-outlined text-sm">subdirectory_arrow_right</span>
-            </div>
-            <h3 className="font-headline-md text-headline-md text-on-surface">Selecciona el modelo</h3>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {modelosDeMarca.map((modelo) => {
-              const isSelected = selectedModelo?.id === modelo.id;
-              return (
-                <div 
-                  key={modelo.id}
-                  onClick={() => setSelectedModelo(modelo)}
-                  className={`rounded-[16px] p-4 flex items-center gap-3 cursor-pointer transition-all duration-200 ${
-                    isSelected 
-                      ? 'bg-primary border-2 border-primary text-on-primary shadow-md scale-[1.02]' 
-                      : 'bg-surface-container-lowest border-2 border-outline-variant/20 hover:border-primary/50 hover:bg-surface-container-low text-on-surface'
-                  }`}
-                >
-                  <div className="flex-grow">
-                    <div className="font-label-md font-bold">{modelo.nombre_modelo}</div>
-                    {modelo.serie && <div className={`text-sm ${isSelected ? 'text-on-primary/80' : 'text-on-surface-variant'}`}>{modelo.serie}</div>}
-                  </div>
-                  {isSelected && <span className="material-symbols-outlined text-on-primary">check_circle</span>}
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      )}
-
-      {/* Step 2: Issue Type */}
-      <section className={`space-y-6 transition-opacity duration-300 ${!selectedModelo ? 'opacity-50 pointer-events-none' : ''}`}>
-        <div className="flex items-center gap-4">
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center font-label-md text-label-md transition-colors ${selectedModelo ? 'bg-primary text-on-primary' : 'bg-surface-container-highest text-on-surface'}`}>2</div>
-          <h3 className="font-headline-md text-headline-md text-on-surface">¿Qué necesita reparación?</h3>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {[
-            { id: 'pantalla', title: 'Reemplazo de Pantalla', desc: 'Cristal roto o problemas de visualización', icon: 'splitscreen' },
-            { id: 'bateria', title: 'Reemplazo de Batería', desc: 'No retiene la carga', icon: 'battery_alert' },
-            { id: 'camara', title: 'Reparación de Cámara', desc: 'Lentes borrosos o rotos', icon: 'photo_camera' },
-            { id: 'agua', title: 'Daño por Agua', desc: 'Diagnóstico por exposición a líquidos', icon: 'water_drop' },
-          ].map(issue => {
-            const isSelected = selectedIssue === issue.id;
-            return (
-              <div 
-                key={issue.id}
-                onClick={() => setSelectedIssue(issue.id)}
-                className={`rounded-[24px] p-6 flex items-center gap-4 cursor-pointer transition-transform hover:scale-[1.01] ${
-                  isSelected ? 'bg-primary-container/10 border-2 border-primary' : 'bg-surface-container-low hover:bg-surface-container border-2 border-transparent'
-                }`}
-              >
-                <div className={`w-12 h-12 rounded-full flex items-center justify-center ${isSelected ? 'bg-primary/20 text-primary' : 'bg-surface-variant text-on-surface-variant'}`}>
-                  <span className="material-symbols-outlined">{issue.icon}</span>
-                </div>
-                <div className="flex-grow">
-                  <h4 className="font-label-md text-label-md text-on-surface">{issue.title}</h4>
-                  <p className="font-body-md text-body-md text-on-surface-variant text-sm">{issue.desc}</p>
-                </div>
-                {isSelected && <span className="material-symbols-outlined text-primary">check_circle</span>}
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* Step 3: Email */}
-      <section className={`space-y-6 transition-opacity duration-300 ${!selectedIssue ? 'opacity-50 pointer-events-none' : ''}`}>
-        <div className="flex items-center gap-4">
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center font-label-md text-label-md transition-colors ${selectedIssue ? 'bg-primary text-on-primary' : 'bg-surface-container-highest text-on-surface'}`}>3</div>
-          <h3 className="font-headline-md text-headline-md text-on-surface">Email de contacto</h3>
-        </div>
-        <div className="max-w-md">
-          <input 
-            type="email" 
-            placeholder="tu@email.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value.trim())}
-            className="w-full bg-surface-container-lowest border border-outline-variant/50 rounded-xl px-4 py-3 text-on-surface placeholder:text-outline focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all shadow-sm"
-          />
-        </div>
-      </section>
-
-      {/* Step 4: Phone */}
-      <section className={`space-y-6 transition-opacity duration-300 ${!email ? 'opacity-50 pointer-events-none' : ''}`}>
-        <div className="flex items-center gap-4">
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center font-label-md text-label-md transition-colors ${email ? 'bg-primary text-on-primary' : 'bg-surface-container-highest text-on-surface'}`}>4</div>
-          <h3 className="font-headline-md text-headline-md text-on-surface">Teléfono de contacto</h3>
-        </div>
-        <div className="max-w-md">
-          <input 
-            type="tel" 
-            placeholder="+1 234 567 8900"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value.replace(/[^\d+]/g, ''))}
-            className="w-full bg-surface-container-lowest border border-outline-variant/50 rounded-xl px-4 py-3 text-on-surface placeholder:text-outline focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all shadow-sm"
-          />
-        </div>
-      </section>
-
-      {/* Final Step: Generate Quote */}
-      <section className={`mt-16 bg-surface-container rounded-[32px] p-8 md:p-12 flex flex-col items-center justify-center relative overflow-hidden transition-opacity duration-500 ${!isFormComplete ? 'opacity-30 pointer-events-none grayscale' : ''}`}>
-        {/* Decorative background element */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4"></div>
-        
-        <div className="z-10 w-full max-w-sm flex flex-col items-center">
-          <h3 className="font-headline-md text-headline-md text-on-surface mb-2">Obtener Presupuesto</h3>
-          <p className="font-body-sm text-body-sm text-on-surface-variant text-center mb-6">Generaremos una cotización estimada y guardaremos tu solicitud.</p>
-          
+        {/* Navigation - Back Button */}
+        {currentStep > 1 && (
           <button 
-            disabled={!isFormComplete || isSubmitting}
-            onClick={handleSubmit}
-            className="w-full bg-primary text-on-primary font-label-md text-label-md h-[56px] px-8 rounded-[16px] hover:bg-primary-container hover:text-on-primary-container transition-colors flex items-center justify-center gap-2 shadow-md disabled:opacity-50 disabled:cursor-not-allowed group"
+            onClick={prevStep}
+            className="absolute top-6 left-6 text-on-surface-variant hover:text-primary transition-colors flex items-center gap-1 font-label-md text-sm z-10"
           >
-            {isSubmitting ? (
-              <>
-                <span className="material-symbols-outlined animate-spin text-sm">refresh</span>
-                Calculando...
-              </>
-            ) : (
-              <>
-                COTIZAR
-                <span className="material-symbols-outlined text-sm group-hover:translate-x-1 transition-transform">request_quote</span>
-              </>
-            )}
+            <span className="material-symbols-outlined text-sm">arrow_back</span>
+            Atrás
           </button>
+        )}
+
+        <div className="flex-grow pt-8 pb-4">
+          {/* Step 1: Brand Selection */}
+          {currentStep === 1 && (
+            <section className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+              {isLoading ? (
+                <div className="text-on-surface-variant flex items-center justify-center gap-2 h-32">
+                  <span className="material-symbols-outlined animate-spin">refresh</span>
+                  Cargando marcas...
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  {marcas.map((marca) => {
+                    const isSelected = selectedMarca === marca;
+                    
+                    // Mapeo simple de marca a archivo de imagen
+                    const getMarcaImage = (m: string) => {
+                      const lower = m.toLowerCase();
+                      if (lower.includes('apple') || lower.includes('iphone')) return '/iphone.webp';
+                      if (lower.includes('samsung')) return '/samsung.webp';
+                      if (lower.includes('motorola')) return '/motorola.webp';
+                      if (lower.includes('redmi') || lower.includes('xiaomi')) return '/redmi.webp';
+                      return null;
+                    };
+                    
+                    const imgSrc = getMarcaImage(marca);
+
+                    return (
+                      <div 
+                        key={marca}
+                        onClick={() => handleMarcaSelect(marca)}
+                        className={`rounded-[24px] p-6 flex flex-col items-center justify-center gap-4 cursor-pointer transition-all duration-200 ${
+                          isSelected 
+                            ? 'bg-primary-container/20 border-2 border-primary scale-[1.02] shadow-sm' 
+                            : 'bg-surface-container hover:bg-surface-container-high border-2 border-transparent'
+                        }`}
+                      >
+                        {imgSrc ? (
+                          <div className={`w-24 h-24 flex items-center justify-center transition-transform ${isSelected ? 'scale-110' : ''}`}>
+                            <img src={imgSrc} alt={marca} className="max-w-full max-h-full object-cover rounded-2xl drop-shadow-sm" />
+                          </div>
+                        ) : (
+                          <span className={`material-symbols-outlined text-5xl ${isSelected ? 'text-primary icon-fill' : 'text-on-surface-variant'}`}>
+                            smartphone
+                          </span>
+                        )}
+                        <span className={`font-label-md text-label-md text-center ${isSelected ? 'text-primary font-bold' : 'text-on-surface-variant'}`}>
+                          {marca}
+                        </span>
+                      </div>
+                    );
+                  })}
+                  {marcas.length === 0 && (
+                    <div className="col-span-full text-on-surface-variant text-center">
+                      No hay modelos registrados en la base de datos.
+                    </div>
+                  )}
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* Step 2: Model Selection */}
+          {currentStep === 2 && (
+            <section className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                {modelosDeMarca.map((modelo) => {
+                  const isSelected = selectedModelo?.id === modelo.id;
+                  
+                  // Lógica para asignar imagen específica por modelo
+                  const getModeloImg = (nombre: string) => {
+                    const lower = nombre.toLowerCase();
+                    if (lower.includes('13') && lower.includes('pro') && lower.includes('max')) {
+                      return '/iphone13_pro_max.webp';
+                    }
+                    if (lower.includes('s24') && lower.includes('ultra')) {
+                      return '/galaxy_s24_ultra.webp';
+                    }
+                    return null; // Sin imagen específica, usará el ícono por defecto
+                  };
+                  
+                  const modeloImg = getModeloImg(modelo.nombre_modelo);
+                  
+                  return (
+                    <div 
+                      key={modelo.id}
+                      onClick={() => handleModeloSelect(modelo)}
+                      className={`rounded-[20px] p-4 flex flex-col items-center text-center gap-3 cursor-pointer transition-all duration-200 ${
+                        isSelected 
+                          ? 'bg-primary-container/20 border-2 border-primary shadow-md scale-[1.02]' 
+                          : 'bg-surface-container border-2 border-transparent hover:border-primary/50 hover:bg-surface-container-high'
+                      }`}
+                    >
+                      {modeloImg ? (
+                        <div className="w-20 h-24 flex items-center justify-center">
+                          <img src={modeloImg} alt={modelo.nombre_modelo} className="max-w-full max-h-full object-contain drop-shadow-sm transition-transform hover:scale-105" />
+                        </div>
+                      ) : (
+                        <div className="w-20 h-24 flex items-center justify-center bg-surface-container-highest/50 rounded-2xl">
+                          <span className="material-symbols-outlined text-5xl text-on-surface-variant/50">smartphone</span>
+                        </div>
+                      )}
+                      
+                      <div className="flex-grow flex flex-col justify-end w-full">
+                        <div className={`font-label-md text-sm md:text-base font-bold leading-tight ${isSelected ? 'text-primary' : 'text-on-surface'}`}>
+                          {modelo.nombre_modelo}
+                        </div>
+                        {modelo.serie && (
+                          <div className={`text-xs mt-1 ${isSelected ? 'text-primary/80' : 'text-on-surface-variant'}`}>
+                            {modelo.serie}
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Check icon top right if selected */}
+                      {isSelected && (
+                        <div className="absolute top-3 right-3 text-primary bg-surface rounded-full">
+                          <span className="material-symbols-outlined text-xl">check_circle</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
+          {/* Step 3: Issue Type */}
+          {currentStep === 3 && (
+            <section className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {[
+                  { id: 'pantalla', title: 'Reemplazo de Pantalla', desc: 'Cristal roto o visualización', icon: 'splitscreen' },
+                  { id: 'bateria', title: 'Reemplazo de Batería', desc: 'No retiene la carga', icon: 'battery_alert' },
+                  { id: 'camara', title: 'Reparación de Cámara', desc: 'Lentes borrosos o rotos', icon: 'photo_camera' },
+                  { id: 'agua', title: 'Daño por Agua', desc: 'Exposición a líquidos', icon: 'water_drop' },
+                ].map(issue => {
+                  const isSelected = selectedIssue === issue.id;
+                  return (
+                    <div 
+                      key={issue.id}
+                      onClick={() => handleIssueSelect(issue.id)}
+                      className={`rounded-[24px] p-6 flex items-center gap-4 cursor-pointer transition-transform hover:scale-[1.01] ${
+                        isSelected ? 'bg-primary-container/10 border-2 border-primary' : 'bg-surface-container hover:bg-surface-container-high border-2 border-transparent'
+                      }`}
+                    >
+                      <div className={`w-12 h-12 rounded-full flex items-center justify-center ${isSelected ? 'bg-primary/20 text-primary' : 'bg-surface-variant text-on-surface-variant'}`}>
+                        <span className="material-symbols-outlined">{issue.icon}</span>
+                      </div>
+                      <div className="flex-grow">
+                        <h4 className="font-label-md text-label-md text-on-surface">{issue.title}</h4>
+                        <p className="font-body-md text-body-md text-on-surface-variant text-sm">{issue.desc}</p>
+                      </div>
+                      {isSelected && <span className="material-symbols-outlined text-primary">check_circle</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
+          {/* Step 4: Contact Info & Submit */}
+          {currentStep === 4 && (
+            <section className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300 flex flex-col items-center max-w-md mx-auto w-full">
+              
+              <div className="w-full space-y-4">
+                <div className="space-y-2">
+                  <label className="font-label-md text-on-surface">Email de contacto</label>
+                  <input 
+                    type="email" 
+                    placeholder="tu@email.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value.trim())}
+                    className="w-full bg-surface-container-lowest border border-outline-variant/50 rounded-xl px-4 py-3 text-on-surface placeholder:text-outline focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all shadow-sm"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="font-label-md text-on-surface">Teléfono de contacto</label>
+                  <input 
+                    type="tel" 
+                    placeholder="11 2345 6789"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value.replace(/[^\d+]/g, ''))}
+                    className="w-full bg-surface-container-lowest border border-outline-variant/50 rounded-xl px-4 py-3 text-on-surface placeholder:text-outline focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all shadow-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="w-full bg-surface-container rounded-[24px] p-6 flex flex-col items-center justify-center relative overflow-hidden mt-6">
+                <button 
+                  disabled={!isFormComplete || isSubmitting}
+                  onClick={handleSubmit}
+                  className="w-full bg-primary text-on-primary font-label-md text-label-md h-[56px] px-8 rounded-[16px] hover:bg-primary-container hover:text-on-primary-container transition-colors flex items-center justify-center gap-2 shadow-md disabled:opacity-50 disabled:cursor-not-allowed group"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <span className="material-symbols-outlined animate-spin text-sm">refresh</span>
+                      Calculando...
+                    </>
+                  ) : (
+                    <>
+                      COTIZAR AHORA
+                      <span className="material-symbols-outlined text-sm group-hover:translate-x-1 transition-transform">request_quote</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+            </section>
+          )}
+
         </div>
-      </section>
+      </div>
     </main>
   );
 }
+
