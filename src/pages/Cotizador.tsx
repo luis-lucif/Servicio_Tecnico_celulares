@@ -104,7 +104,9 @@ export default function Cotizador() {
   };
 
   const enviarPresupuestoWhatsapp = () => {
-    const numeroWhatsApp = import.meta.env.VITE_WHATSAPP_NUMBER;
+    // Obtenemos el número del .env y limpiamos comillas por si acaso, con un fallback de seguridad
+    let numeroWhatsApp = import.meta.env.VITE_WHATSAPP_NUMBER || '5491127722634';
+    numeroWhatsApp = numeroWhatsApp.replace(/['"]/g, '').trim();
     
     const problemaTxt = [
       { id: 'pantalla', title: 'Reemplazo de Pantalla' },
